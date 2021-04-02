@@ -1,0 +1,165 @@
+@startuml
+skinparam titleBorderRoundCorner 15
+skinparam titleBorderThickness 2
+skinparam titleBorderColor red
+skinparam titleBackgroundColor Aqua-pink
+skinparam backgroundColor #whitesmoke
+skinparam linetype polyline
+
+title Enterprise Domain.Workforce Management \n(v.1.0) \nAR-223 Time Management System 
+allow_mixing
+scale 9/10
+
+legend top right
+    | <b>aktor lub\n<b>komponent | <b>znaczenie  | <b>strzałka|
+    |<#DeepSkyBlue>| zmiana | <#blueviolet>|
+    |<#Yellow>| konfiguracja | <#gold> |
+    |<#SpringGreen>| nowy | <#forestgreen> |
+    |<#Red>| usuwany |  <#Red> |
+    |<#White>| bez zmian | <#black> |
+endlegend
+  
+package "APN corponet" <<Cloud>> {
+
+component "Mobile \n<size:30><&phone>" as MP #White 
+component "Tablet \n<size:30><&tablet>" as TB #White 
+}
+
+package TMPL <<Rectangle>> {
+    component "PC <size:30><&monitor>" as PC #White
+    component "Firewall" as FW #Yellow
+    component "FAN" as FAN #RED
+    component "ServiceDesk" as SD #Yellow
+    component "DPS.CNM" as CNM #White
+    component "Atlas" as Atlas #DeepSkyBlue
+    component "RCP" as RCP #Red
+    component "DPS.IDM" as IDM #Yellow
+    component "Active \nDirectory" as AD #Yellow
+    component "Exchange" as Exchange #White
+    component "ngWFM " as ngWFM #White
+    component "Clipper " as Clipper #White
+    component "SMS" as SMS #White
+    component "Exit \nEntrance" as EE #Red
+    component "Portal \ntuiteraz" as TT #DeepSkyBlue
+    component "Tibco" as Tibco #DeepSkyBlue
+    
+    frame "TMS (systemy SAP)" <<Rectangle>> {
+        component "SAP GW \n(FID/FIT/FIP)]]" as SAPGW #DeepSkyBlue
+        component "SAP HR" as SAPHR #DeepSkyBlue
+    }
+
+    interface "<DPS.CNM API \nHTTP>" as CNM.API #White {
+        POST /communicationMessages/
+        GET /communicationMessages/{id}
+    }
+
+    interface "<DIS.EMB:AMQP/JMS>\nEntry-Exit" as events_entry_exit #SpringGreen {
+        .. SMS -> SAPGW..
+        wejścia, wyjścia 
+    }
+
+    interface "<DIS.EMB:AMQP/JMS>\nczas pracy" as events_WFM_TMS #SpringGreen {
+        .. SAPGW -> WFM ..
+        dane pracownika
+        urlopy, szkolenia, 
+        zwolnienia, nadgodziny
+        .. WFM -> SAPGW ..
+        grafik
+    } 
+    interface "<SOAP/HTTP>\nAtlasService" as SMSif #white {
+        .. no change ..
+        getAccessEventsForTimeperiodAsFile 
+    }
+
+    interface "Z_HR_RCP_INSERT_DATA \n<<SOAP HTTP>>" as SAP_if_Z_HR #Red {
+        .. no change ..
+        Z_HR_RCP_INSERT_DATA
+    }
+    interface "tabela \ninterfejsowa" as RCP_if_DB #Red {
+        wejścia, wyjścia
+    }
+
+} 
+
+' IFS_if -[hidden]left- BSCS_if
+' BSCS_if -[hidden]right- EWKA_if
+' EWKA_if -[hidden]right- RBM_if
+' RBM_if -[hidden]right- CBS_if
+
+
+PC .down.> SAPGW #Green: <<https>>
+PC -[hidden]left- FW
+
+SAPGW .left.> SAPHR #Green: <b><<funkcje RFC>> 
+
+'urządzenia mobilne
+TB .down.> FW #Green
+MP .down.> FW #Green
+
+FW .down.>SAPGW #Green
+
+SAPGW .up.> Exchange: <b><<SMTP>>
+Exchange -[hidden]left- PC
+
+SAPGW .up.> AD #Green: <b><<ADFS>> 
+note bottom of AD
+    autentykacja 
+    userów
+end note
+
+SAPHR .left.> IDM #Green: <b><<OpenID \n<b>Connect>> 
+IDM -[hidden]up- ngWFM
+note top of IDM 
+    autentykacja 
+    SAPHR
+end note
+
+SD  -[hidden]left- Exchange
+
+' notyfikacje SMSowe
+CNM -left-|> CNM.API
+SAPGW .right.> CNM.API #Green: <b><<DIS>>
+
+'autoryzacja userów
+
+'baza procedurSMTP_POP3 -[hidden]down- BSCS_if
+SAPGW .down.> Clipper #Green: <<URL>>
+
+'eventy TMS <> WFM
+SAPGW .up.> events_WFM_TMS #Green: <b><<DIS.EMB>>
+ngWFM .right.> events_WFM_TMS #Green: <b><<DIS.EMB>>
+
+ngWFM -[hidden]left- Exchange
+
+ngWFM .down.> SAPGW: <<ręczny \nimport \ngrafika>>
+
+'wnioski atlasowe
+Atlas .up.> SAPHR #red: <<manual>>
+FAN .up.> Atlas #red: <<manual>>
+' nadgodziny
+SAPHR .down.> Atlas #Green: <<manual>>
+
+' tuiteraz
+TT .down.> EE #red: <<iframe w \nwebpart>>
+
+TT .up.> SAPGW #Green: <<iframe w \nwebpart>>
+
+' zdarzenia wejścia-wyjścia
+SAPGW .down.> events_entry_exit #Green: <b><<DIS.EMB>>
+SMS .up.> events_entry_exit #Green: <b><<DIS.EMB>>
+
+EE .right.> SAPHR #red: <<manual>>
+' EE -[hidden]right- SSMif
+' SSM -[hidden]right- SSMif
+' Tibco -[hidden]left- SSM
+' SAP_if_Z_HR   -[hidden]left- events_entry_exit
+
+SAPHR -down-|>  SAP_if_Z_HR #Red
+Tibco .up.>  SAP_if_Z_HR #Red: <<Tibco>>
+Tibco .down.> RCP_if_DB #Red: odczyt \ncykliczny
+
+RCP -left-|> RCP_if_DB
+RCP .right.> SMSif
+RCP .up.> EE: <zasilenie \nbazy EE>
+SMS -left-|> SMSif
+@enduml
