@@ -1,0 +1,22 @@
+@startuml MSPP_ACCOUNT_STATUS_GET
+'--------------------------------------------------------------------------------------------
+'Change History:
+' Initial Version - 13/05/2020
+'--------------------------------------------------------------------------------------------
+skinparam ParticipantPadding 100
+autoactivate on
+Consumer -> WMB : M100.LBG.GetAccountStatus
+    WMB -> WMB #005500 : M01:UFSS_ACCOUNT_DETAILS_GET
+        note right of WMB
+        Exit On Error
+        end note
+    return M02:UFSS_ACCOUNT_DETAILS_GET
+'Validate Account Status 
+    WMB -> MSPHost : M03:NMSP.WMB.Validate.AccountStatus.Req
+        note right of MSPHost
+        Copybook over MQ
+        Exit On Error
+        end note
+    return M04:NMSP.WMB.Validate.AccountStatus.Req
+return M200.LBG.GetAccountStatus
+@enduml
