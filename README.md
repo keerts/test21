@@ -3,6 +3,8 @@
 
 [TOC]
 
+[[_TOC_]]
+
 # test21
 
 ## test21level2
